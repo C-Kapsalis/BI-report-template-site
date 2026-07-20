@@ -460,6 +460,30 @@ button:disabled {
   color: var(--ink);
 }
 
+/* The Save button is the payoff of the save step - make it unmistakable. */
+.bookmark-save-btn {
+  border: 1px solid var(--copper);
+  border-radius: 6px;
+  background: var(--copper);
+  color: #fff;
+  padding: 6px 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 8px rgba(156, 81, 44, 0.45);
+}
+
+.bookmark-save-btn:hover:not(:disabled) {
+  background: #b3603a;
+  border-color: #b3603a;
+}
+
+.bookmark-save-btn:disabled {
+  background: var(--grid);
+  border-color: var(--grid);
+  color: var(--muted);
+  box-shadow: none;
+}
+
 /* ---------- layout ---------- */
 
 .report-body {

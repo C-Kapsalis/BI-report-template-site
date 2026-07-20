@@ -100,7 +100,7 @@ export function BookmarkBar({ onOpenGuide }: { onOpenGuide: (guideId: string) =>
             }}
           />
           <button
-            className="header-btn"
+            className="bookmark-save-btn"
             onClick={submit}
             disabled={!name.trim()}
             title={name.trim() ? "Save this bookmark" : "Enter a name for the bookmark first"}

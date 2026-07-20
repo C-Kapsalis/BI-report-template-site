@@ -67,10 +67,10 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: "save",
     title: "Step 5 - save this as a bookmark",
     body:
-      "The view you just built answers a question you will ask again next month. Don't rebuild it - bookmark it. Click 'Save current view' in the Views bar, give it a name that states the question (like 'Reach vs delivery'), and save.",
+      "The view you just built answers a question you will ask again next month. Don't rebuild it - bookmark it. Click 'Save current view' in the Views bar, type a name that states the question (like 'Reach vs delivery'), then hit the highlighted Save button.",
     target: "save-bookmark",
     isComplete: (c) => c.customBookmarks.length > 0,
-    todo: "Save the current view as a named bookmark.",
+    todo: "Name the view, then hit Save.",
   },
   {
     id: "switch",
