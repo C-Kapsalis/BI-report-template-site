@@ -42,6 +42,9 @@ export function ReportCanvas({
     null;
 
   const blank = !selection.barMeasure && !selection.lineMeasure;
+  // Truly-blank report: nothing drives the chart and no matrix measures are
+  // added, so the matrix collapses to an empty state instead of the fixed six.
+  const matrixBlank = blank && selection.matrixMeasures.length === 0;
 
   return (
     <>
@@ -84,7 +87,14 @@ export function ReportCanvas({
           <MatrixSelectors />
 
           <section className="card matrix-card" aria-label="Drilldown matrix" data-tour="matrix">
-            <MatrixTable model={matrix} />
+            {matrixBlank ? (
+              <EmptyState
+                title="Nothing to show in the matrix"
+                body="The matrix mirrors your selection. Pick a measure in Set Bars or Set Lines, or add an additional matrix measure above."
+              />
+            ) : (
+              <MatrixTable model={matrix} />
+            )}
           </section>
         </main>
 

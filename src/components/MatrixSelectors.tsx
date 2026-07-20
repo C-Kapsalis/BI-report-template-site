@@ -1,33 +1,50 @@
-import { ADDITIONAL_MATRIX_IDS, measureById } from "../data/measures";
+import { ADDITIONAL_MATRIX_IDS, MATRIX_LEVELS, measureById } from "../data/measures";
 import { MAX_ADDITIONAL_MEASURES, useReport } from "../state/ReportContext";
 import { Dropdown } from "./Dropdown";
 
 /**
- * The two matrix selectors above the drilldown table: the (fixed) drilldown
- * dimensions and the additional-measure picker. Additional measures append
- * columns to the matrix; the drilldown is fixed at Month -> Send.
+ * The two matrix selectors above the drilldown table: the drilldown dimensions
+ * (Email Sent Month and/or Individual Send, or neither for a totals-only view)
+ * and the additional-measure picker. Additional measures append columns to the
+ * matrix; every column also honours the totals when no dimension is chosen.
  */
 export function MatrixSelectors() {
-  const { selection, toggleMatrixMeasure } = useReport();
+  const { selection, toggleMatrixMeasure, clearMatrixMeasures, toggleMatrixLevel } = useReport();
   const additional = selection.matrixMeasures;
   const full = additional.length >= MAX_ADDITIONAL_MEASURES;
+  const levels = selection.matrixDrilldown;
+
+  const drilldownValue =
+    levels.length === 0
+      ? "(None)"
+      : levels.length === MATRIX_LEVELS.length
+        ? "Multiple selections"
+        : MATRIX_LEVELS.find((l) => l.id === levels[0])!.label;
 
   return (
     <div className="matrix-selectors">
       <div className="matrix-selector-block">
         <span className="selector-label">Set Drilldown Matrix Dimensions</span>
-        <Dropdown label="Drilldown matrix dimensions" value="Multiple selections">
+        <Dropdown label="Drilldown matrix dimensions" value={drilldownValue}>
           {() => (
             <ul className="check-list" role="list">
-              {["Email Sent Month", "Individual Send"].map((d) => (
-                <li key={d}>
+              {MATRIX_LEVELS.map((l) => (
+                <li key={l.id}>
                   <label className="check-item">
-                    <input type="checkbox" checked readOnly aria-label={`${d} (fixed drilldown level)`} />
-                    {d}
+                    <input
+                      type="checkbox"
+                      checked={levels.includes(l.id)}
+                      onChange={() => toggleMatrixLevel(l.id)}
+                    />
+                    {l.label}
                   </label>
                 </li>
               ))}
-              <li className="check-note">The drilldown is fixed: months expand to their sends.</li>
+              <li className="check-note">
+                {levels.length === 0
+                  ? "No drilldown - the matrix shows the Total row only."
+                  : "Clear both to collapse the matrix to totals."}
+              </li>
             </ul>
           )}
         </Dropdown>
@@ -42,6 +59,17 @@ export function MatrixSelectors() {
         >
           {() => (
             <ul className="check-list" role="list">
+              <li>
+                <label className="check-item">
+                  <input
+                    type="checkbox"
+                    checked={additional.length === 0}
+                    onChange={clearMatrixMeasures}
+                    aria-label="No additional measures"
+                  />
+                  (None)
+                </label>
+              </li>
               {ADDITIONAL_MATRIX_IDS.map((id) => {
                 const checked = additional.includes(id);
                 const disabled = !checked && full;

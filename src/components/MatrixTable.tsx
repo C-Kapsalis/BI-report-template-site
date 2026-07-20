@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fmtCell } from "../data/measures";
-import type { MatrixModel } from "../data/series";
+import type { MatrixColumn, MatrixModel, MatrixRow } from "../data/series";
 
 const SEVERITY_ICON: Record<string, string> = {
   warning: "▲",
@@ -9,8 +9,9 @@ const SEVERITY_ICON: Record<string, string> = {
 };
 
 /**
- * The drilldown matrix: one row per Email Sent Month, expandable (+/-) to the
- * individual sends within that month, with a recomputed Total row. Columns are
+ * The drilldown matrix. Rows follow the Set Drilldown Matrix Dimensions
+ * selection: months expanding (+/-) to their sends, months only, a flat list
+ * of sends, or - with no dimension selected - the Total row alone. Columns are
  * the fixed six email metrics plus any additional measures. Status flags always
  * pair an icon with a label (never color alone).
  */
@@ -32,7 +33,7 @@ export function MatrixTable({ model }: { model: MatrixModel }) {
         <table>
           <thead>
             <tr>
-              <th scope="col" className="row-label-col">Email Sent Month</th>
+              <th scope="col" className="row-label-col">{model.rowLabelHeader}</th>
               {model.columns.map((c) => (
                 <th key={c.measureId} scope="col" className="num">{c.label}</th>
               ))}
@@ -40,48 +41,37 @@ export function MatrixTable({ model }: { model: MatrixModel }) {
             </tr>
           </thead>
           <tbody>
-            {model.months.map((m) => {
-              const open = expanded.has(m.key);
+            {model.rows.map((row) => {
+              const hasChildren = !!row.children && row.children.length > 0;
+              const open = hasChildren && expanded.has(row.key);
               return (
-                <FragmentRows key={m.key}>
-                  <tr className="matrix-month-row">
-                    <th scope="row" className="row-label-col">
-                      <button
-                        type="button"
-                        className="matrix-expand"
-                        aria-expanded={open}
-                        aria-label={`${open ? "Collapse" : "Expand"} ${m.label} (${m.sends.length} sends)`}
-                        onClick={() => toggle(m.key)}
-                      >
-                        <span className="matrix-expand-icon" aria-hidden>{open ? "−" : "+"}</span>
-                        <span className="matrix-month-name">{m.label}</span>
-                      </button>
-                    </th>
-                    {m.values.map((v, i) => (
-                      <td key={i} className="num">{fmtCell(v, model.columns[i].measureId, model.columns[i].unit)}</td>
-                    ))}
-                    <td className="flags-col">
-                      {m.flags.map((f) => (
-                        <span key={f.label} className={`flag flag-${f.severity}`}>
-                          <span aria-hidden>{SEVERITY_ICON[f.severity]}</span> {f.label}
-                        </span>
-                      ))}
-                    </td>
+                <FragmentRows key={row.key}>
+                  <tr className={hasChildren ? "matrix-month-row" : "matrix-send-row"}>
+                    {hasChildren ? (
+                      <th scope="row" className="row-label-col">
+                        <button
+                          type="button"
+                          className="matrix-expand"
+                          aria-expanded={open}
+                          aria-label={`${open ? "Collapse" : "Expand"} ${row.label} (${row.children!.length} sends)`}
+                          onClick={() => toggle(row.key)}
+                        >
+                          <span className="matrix-expand-icon" aria-hidden>{open ? "−" : "+"}</span>
+                          <span className="matrix-month-name">{row.label}</span>
+                        </button>
+                      </th>
+                    ) : (
+                      <td className="row-label-col send-label">{row.label}</td>
+                    )}
+                    <Cells values={row.values} columns={model.columns} />
+                    <FlagsCell flags={row.flags} />
                   </tr>
                   {open &&
-                    m.sends.map((s) => (
-                      <tr key={s.key} className="matrix-send-row">
-                        <td className="row-label-col send-label">{s.name}</td>
-                        {s.values.map((v, i) => (
-                          <td key={i} className="num">{fmtCell(v, model.columns[i].measureId, model.columns[i].unit)}</td>
-                        ))}
-                        <td className="flags-col">
-                          {s.flags.map((f) => (
-                            <span key={f.label} className={`flag flag-${f.severity}`}>
-                              <span aria-hidden>{SEVERITY_ICON[f.severity]}</span> {f.label}
-                            </span>
-                          ))}
-                        </td>
+                    row.children!.map((child) => (
+                      <tr key={child.key} className="matrix-send-row">
+                        <td className="row-label-col send-label">{child.label}</td>
+                        <Cells values={child.values} columns={model.columns} />
+                        <FlagsCell flags={child.flags} />
                       </tr>
                     ))}
                 </FragmentRows>
@@ -98,9 +88,31 @@ export function MatrixTable({ model }: { model: MatrixModel }) {
             </tr>
           </tfoot>
         </table>
-        <p className="visually-hidden">Table has {colCount} measure columns across {model.months.length} months.</p>
+        <p className="visually-hidden">Table has {colCount} measure columns across {model.rows.length} rows.</p>
       </div>
     </div>
+  );
+}
+
+function Cells({ values, columns }: { values: (number | null)[]; columns: MatrixColumn[] }) {
+  return (
+    <>
+      {values.map((v, i) => (
+        <td key={i} className="num">{fmtCell(v, columns[i].measureId, columns[i].unit)}</td>
+      ))}
+    </>
+  );
+}
+
+function FlagsCell({ flags }: { flags: MatrixRow["flags"] }) {
+  return (
+    <td className="flags-col">
+      {flags.map((f) => (
+        <span key={f.label} className={`flag flag-${f.severity}`}>
+          <span aria-hidden>{SEVERITY_ICON[f.severity]}</span> {f.label}
+        </span>
+      ))}
+    </td>
   );
 }
 

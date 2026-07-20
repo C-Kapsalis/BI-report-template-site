@@ -13,6 +13,7 @@ import {
   measureById,
   TIMEFRAMES,
   type GrainId,
+  type MatrixLevel,
   type MeasureId,
   type PlotById,
   type TimeframeId,
@@ -31,6 +32,12 @@ export interface Selection {
   plotBy: PlotById;
   /** Extra columns appended to the matrix (beyond the fixed six). */
   matrixMeasures: MeasureId[];
+  /**
+   * Drilldown levels for the matrix, outer level first. Both levels =
+   * months expanding to their sends; a single level flattens to that
+   * level; an empty array collapses the matrix to the Total row only.
+   */
+  matrixDrilldown: MatrixLevel[];
   /** Email Sent Date filter (month keys); null = every month in the timeframe. */
   months: string[] | null;
   /** Mailing List slicer; null = every list (the whole page is filtered). */
@@ -44,6 +51,7 @@ export const EMPTY_SELECTION: Selection = {
   grain: "month",
   plotBy: "month",
   matrixMeasures: [],
+  matrixDrilldown: ["month", "send"],
   months: null,
   lists: null,
   timeframe: "12m",
@@ -252,7 +260,7 @@ export function buildChart(sel: Selection): ChartModel {
   return { buckets, bar, line, notices, plotByLabel: plotByLabelText };
 }
 
-/* ---------- matrix (fixed columns, Month -> Send drilldown) ---------- */
+/* ---------- matrix (fixed columns, configurable drilldown) ---------- */
 
 export interface MatrixColumn {
   measureId: MeasureId;
@@ -265,24 +273,20 @@ export interface MatrixFlag {
   severity: "warning" | "serious" | "critical";
 }
 
-export interface MatrixSend {
-  key: string;
-  name: string;
-  values: (number | null)[];
-  flags: MatrixFlag[];
-}
-
-export interface MatrixMonth {
+export interface MatrixRow {
   key: string;
   label: string;
   values: (number | null)[];
   flags: MatrixFlag[];
-  sends: MatrixSend[];
+  /** Child rows the caller can expand into; absent for a leaf row. */
+  children?: MatrixRow[];
 }
 
 export interface MatrixModel {
   columns: MatrixColumn[];
-  months: MatrixMonth[];
+  /** Header for the row-label column, reflecting the outer drilldown level. */
+  rowLabelHeader: string;
+  rows: MatrixRow[];
   total: (number | null)[];
 }
 
@@ -303,6 +307,13 @@ function sendFlags(c: CampaignSend): MatrixFlag[] {
   return flags;
 }
 
+function monthDeliveryFlags(rows: CampaignSend[]): MatrixFlag[] {
+  const delivery = sendAggregate(rows, "deliveryRate");
+  return delivery !== null && delivery < 0.95
+    ? [{ label: "Delivery below 95%", severity: "critical" }]
+    : [];
+}
+
 export function buildMatrix(sel: Selection): MatrixModel {
   const ids = [...FIXED_MATRIX_IDS];
   for (const m of sel.matrixMeasures) if (!ids.includes(m)) ids.push(m);
@@ -312,27 +323,41 @@ export function buildMatrix(sel: Selection): MatrixModel {
   });
 
   const sends = activeCampaigns(sel);
-  const monthKeys = [...new Set(sends.map((c) => monthKey(c.sentDate)))].sort();
+  const total = ids.map((id) => sendAggregate(sends, id));
 
-  const months: MatrixMonth[] = monthKeys.map((mk) => {
+  const byMonth = sel.matrixDrilldown.includes("month");
+  const bySend = sel.matrixDrilldown.includes("send");
+  const rowLabelHeader = byMonth ? "Email Sent Month" : bySend ? "Individual Send" : "";
+
+  const sendRow = (c: CampaignSend): MatrixRow => ({
+    key: c.id,
+    label: c.name,
+    values: ids.map((id) => sendAggregate([c], id)),
+    flags: sendFlags(c),
+  });
+
+  // No drilldown: the Total row alone carries the numbers.
+  if (!byMonth && !bySend) {
+    return { columns, rowLabelHeader, rows: [], total };
+  }
+
+  // Individual Send only: a flat, chronological list of sends.
+  if (!byMonth) {
+    return { columns, rowLabelHeader, rows: sends.map(sendRow), total };
+  }
+
+  const monthKeys = [...new Set(sends.map((c) => monthKey(c.sentDate)))].sort();
+  const rows: MatrixRow[] = monthKeys.map((mk) => {
     const inMonth = sends.filter((c) => monthKey(c.sentDate) === mk);
-    const monthDelivery = sendAggregate(inMonth, "deliveryRate");
-    const flags: MatrixFlag[] = monthDelivery !== null && monthDelivery < 0.95
-      ? [{ label: "Delivery below 95%", severity: "critical" }]
-      : [];
     return {
       key: mk,
       label: monthFull(mk),
       values: ids.map((id) => sendAggregate(inMonth, id)),
-      flags,
-      sends: inMonth.map((c) => ({
-        key: c.id,
-        name: c.name,
-        values: ids.map((id) => sendAggregate([c], id)),
-        flags: sendFlags(c),
-      })),
+      flags: monthDeliveryFlags(inMonth),
+      // Expandable to its sends only when the send level is also on.
+      children: bySend ? inMonth.map(sendRow) : undefined,
     };
   });
 
-  return { columns, months, total: ids.map((id) => sendAggregate(sends, id)) };
+  return { columns, rowLabelHeader, rows, total };
 }

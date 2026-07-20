@@ -37,6 +37,7 @@ export const BUILTIN_BOOKMARKS: BookmarkDef[] = [
       grain: "month",
       plotBy: "month",
       matrixMeasures: [],
+      matrixDrilldown: ["month", "send"],
       months: null,
       lists: null,
       timeframe: "12m",
@@ -55,6 +56,7 @@ export const BUILTIN_BOOKMARKS: BookmarkDef[] = [
       grain: "month",
       plotBy: "month",
       matrixMeasures: ["opens", "clicks", "revenue"],
+      matrixDrilldown: ["month", "send"],
       months: null,
       lists: null,
       timeframe: "12m",
@@ -73,6 +75,7 @@ export const BUILTIN_BOOKMARKS: BookmarkDef[] = [
       grain: "month",
       plotBy: "month",
       matrixMeasures: ["openRate", "ctr", "ctor"],
+      matrixDrilldown: ["month", "send"],
       months: null,
       lists: null,
       timeframe: "12m",
@@ -91,6 +94,7 @@ export const BUILTIN_BOOKMARKS: BookmarkDef[] = [
       grain: "month",
       plotBy: "list",
       matrixMeasures: [],
+      matrixDrilldown: ["month", "send"],
       months: null,
       lists: null,
       timeframe: "12m",
@@ -112,7 +116,17 @@ export function loadCustomBookmarks(): BookmarkDef[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as BookmarkDef[];
-    return Array.isArray(parsed) ? parsed.filter((b) => b && b.id && b.selection) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((b) => b && b.id && b.selection)
+      .map((b) => ({
+        ...b,
+        // Backfill fields added after a bookmark was first saved.
+        selection: {
+          ...b.selection,
+          matrixDrilldown: b.selection.matrixDrilldown ?? ["month", "send"],
+        },
+      }));
   } catch {
     return [];
   }

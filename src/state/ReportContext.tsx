@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { GrainId, MeasureId, PlotById, TimeframeId } from "../data/measures";
+import type { GrainId, MatrixLevel, MeasureId, PlotById, TimeframeId } from "../data/measures";
 import { EMPTY_SELECTION, type Selection } from "../data/series";
 import type { ListName } from "../data/types";
 import {
@@ -33,6 +33,8 @@ interface ReportState {
   setGrain: (grain: GrainId) => void;
   setPlotBy: (plotBy: PlotById) => void;
   toggleMatrixMeasure: (id: MeasureId) => void;
+  clearMatrixMeasures: () => void;
+  toggleMatrixLevel: (level: MatrixLevel) => void;
   toggleMonth: (monthKey: string) => void;
   setMonths: (months: string[] | null) => void;
   setLists: (lists: ListName[] | null) => void;
@@ -100,6 +102,23 @@ export function ReportProvider({
           ...p,
           matrixMeasures: has ? p.matrixMeasures.filter((m) => m !== id) : [...p.matrixMeasures, id],
         };
+      }),
+    [mutate],
+  );
+  const clearMatrixMeasures = useCallback(
+    () => mutate((p) => (p.matrixMeasures.length === 0 ? p : { ...p, matrixMeasures: [] })),
+    [mutate],
+  );
+  const toggleMatrixLevel = useCallback(
+    (level: MatrixLevel) =>
+      mutate((p) => {
+        const has = p.matrixDrilldown.includes(level);
+        const next = has
+          ? p.matrixDrilldown.filter((l) => l !== level)
+          : [...p.matrixDrilldown, level];
+        // Keep the canonical outer-to-inner order (month before send).
+        next.sort((a, b) => (a === "month" ? -1 : b === "month" ? 1 : 0));
+        return { ...p, matrixDrilldown: next };
       }),
     [mutate],
   );
@@ -185,6 +204,8 @@ export function ReportProvider({
     setGrain,
     setPlotBy,
     toggleMatrixMeasure,
+    clearMatrixMeasures,
+    toggleMatrixLevel,
     toggleMonth,
     setMonths,
     setLists,

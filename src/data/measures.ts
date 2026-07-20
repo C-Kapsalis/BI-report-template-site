@@ -41,6 +41,9 @@ export type GrainId = "year" | "quarter" | "month" | "week" | "date";
 /** The "Plot By" field parameter: which dimension the chart is plotted across. */
 export type PlotById = "month" | "send" | "list" | "type";
 
+/** A drilldown level for the matrix. The two levels can be combined or cleared. */
+export type MatrixLevel = "month" | "send";
+
 export type TimeframeId = "3m" | "6m" | "12m";
 
 /**
@@ -150,6 +153,12 @@ export const PLOT_BY: PlotByDef[] = [
 ];
 
 export const plotByLabel = (id: PlotById) => PLOT_BY.find((p) => p.id === id)?.label ?? "";
+
+/** The two drilldown levels offered above the matrix, outer level first. */
+export const MATRIX_LEVELS: { id: MatrixLevel; label: string }[] = [
+  { id: "month", label: "Email Sent Month" },
+  { id: "send", label: "Individual Send" },
+];
 
 export const TIMEFRAMES: { id: TimeframeId; label: string; startMonth: string }[] = [
   { id: "12m", label: "Last 12 months", startMonth: "2025-08" },
