@@ -69,8 +69,7 @@ npm run preview    # serve the production build
 Requires Node 18 or later. No backend, no database, no accounts; the data is a
 TypeScript module. It is a static single-page app, ready to deploy out of the box:
 import the repo in Vercel, accept the Vite defaults, deploy. The repo's `vercel.json`
-provides the SPA fallback so `/tutorial` loads on a direct visit. Full steps, including
-the no-repo CLI route and other static hosts, are in the documentation linked below.
+provides the SPA fallback so `/tutorial` loads on a direct visit.
 
 ## Recreate it in Power BI
 
@@ -92,10 +91,10 @@ definition, and an explanation piece per built-in view), is published at
 
 ## Use your own data
 
-All the demo data lives in two files with a small documented schema, authored as inputs
-(sends, bounces, rates) so the funnel arithmetic always stays consistent. The "swap in
-your own data" how-to guide in the documentation above walks through replacing it with
-exports from your own sending tool.
+All the demo data lives in two files, `src/data/campaigns.ts` and
+`src/data/listHealth.ts`, with the schema documented in `src/data/types.ts`. Data is
+authored as inputs (sends, bounces, rates) so the funnel arithmetic always stays
+consistent.
 
 ## Part of a small family of Power BI tools
 
@@ -110,6 +109,10 @@ related, independently installable tools then help build and maintain for real.
   derived models in sync with one shared template.
 - [`pbi-plot-styler`](https://github.com/C-Kapsalis/pbi-plot-styler): keeps a report
   built on this pattern presentation-ready as measures are added.
+
+## Contributing
+
+Design changes need a stated source: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Release notes
 
