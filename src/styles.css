@@ -1347,7 +1347,9 @@ button:disabled {
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   padding: 6px;
-  z-index: 25;
+  /* Above the tutorial spotlight (50) and coach card (60) so slicer options
+     opened during the tutorial float on top instead of behind it. */
+  z-index: 70;
 }
 
 .dropdown-panel.left {
