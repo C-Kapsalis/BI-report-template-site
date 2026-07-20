@@ -42,9 +42,9 @@ export function ReportCanvas({
     null;
 
   const blank = !selection.barMeasure && !selection.lineMeasure;
-  // Truly-blank report: nothing drives the chart and no matrix measures are
-  // added, so the matrix collapses to an empty state instead of the fixed six.
-  const matrixBlank = blank && selection.matrixMeasures.length === 0;
+  // The matrix shows exactly the picked measures; with none picked it collapses
+  // to an empty state. (Chart + matrix both empty = a truly blank report.)
+  const matrixBlank = selection.matrixMeasures.length === 0;
 
   return (
     <>
@@ -90,7 +90,7 @@ export function ReportCanvas({
             {matrixBlank ? (
               <EmptyState
                 title="Nothing to show in the matrix"
-                body="The matrix mirrors your selection. Pick a measure in Set Bars or Set Lines, or add an additional matrix measure above."
+                body="The matrix shows the measures you pick. Choose one or more in Set Additional Matrix Measures above."
               />
             ) : (
               <MatrixTable model={matrix} />

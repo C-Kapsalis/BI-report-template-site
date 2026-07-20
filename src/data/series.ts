@@ -260,7 +260,7 @@ export function buildChart(sel: Selection): ChartModel {
   return { buckets, bar, line, notices, plotByLabel: plotByLabelText };
 }
 
-/* ---------- matrix (fixed columns, configurable drilldown) ---------- */
+/* ---------- matrix (picked columns, configurable drilldown) ---------- */
 
 export interface MatrixColumn {
   measureId: MeasureId;
@@ -290,10 +290,6 @@ export interface MatrixModel {
   total: (number | null)[];
 }
 
-const FIXED_MATRIX_IDS: MeasureId[] = [
-  "sent", "delivered", "deliveryRate", "bounces", "bounceRate", "complaints",
-];
-
 function sendFlags(c: CampaignSend): MatrixFlag[] {
   const flags: MatrixFlag[] = [];
   const delivery = c.sent ? c.delivered / c.sent : 1;
@@ -315,8 +311,8 @@ function monthDeliveryFlags(rows: CampaignSend[]): MatrixFlag[] {
 }
 
 export function buildMatrix(sel: Selection): MatrixModel {
-  const ids = [...FIXED_MATRIX_IDS];
-  for (const m of sel.matrixMeasures) if (!ids.includes(m)) ids.push(m);
+  // Columns are exactly the picked measures (deduped, in selection order).
+  const ids = sel.matrixMeasures.filter((id, i, a) => a.indexOf(id) === i);
   const columns: MatrixColumn[] = ids.map((id) => {
     const d = measureById.get(id)!;
     return { measureId: id, label: d.colLabel, unit: d.unit };

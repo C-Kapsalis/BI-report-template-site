@@ -16,7 +16,7 @@ import {
   type BookmarkDef,
 } from "./bookmarks";
 
-export const MAX_ADDITIONAL_MEASURES = 6;
+export const MAX_ADDITIONAL_MEASURES = 12;
 
 interface ReportState {
   selection: Selection;

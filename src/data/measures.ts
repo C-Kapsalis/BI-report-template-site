@@ -121,9 +121,16 @@ export const CHART_MEASURE_IDS: MeasureId[] = [
   "listMembers", "listSubscribes", "listNetChange",
 ];
 
-/** Measures offered in the "Set Additional Matrix Measures" menu. */
+/**
+ * Measures offered in the "Set Additional Matrix Measures" menu. The matrix
+ * columns are exactly the measures picked here (in this catalog order), so the
+ * full send-metric catalog is offered - reach/delivery, engagement, negative
+ * signals, then revenue.
+ */
 export const ADDITIONAL_MATRIX_IDS: MeasureId[] = [
-  "opens", "clicks", "openRate", "ctr", "ctor", "unsubscribes", "unsubRate", "complaintRate", "revenue",
+  "sent", "delivered", "deliveryRate", "bounces", "bounceRate",
+  "opens", "openRate", "clicks", "ctr", "ctor",
+  "unsubscribes", "unsubRate", "complaints", "complaintRate", "revenue",
 ];
 
 export interface GrainDef {

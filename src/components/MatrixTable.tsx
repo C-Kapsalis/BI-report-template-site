@@ -12,8 +12,8 @@ const SEVERITY_ICON: Record<string, string> = {
  * The drilldown matrix. Rows follow the Set Drilldown Matrix Dimensions
  * selection: months expanding (+/-) to their sends, months only, a flat list
  * of sends, or - with no dimension selected - the Total row alone. Columns are
- * the fixed six email metrics plus any additional measures. Status flags always
- * pair an icon with a label (never color alone).
+ * exactly the measures picked in Set Additional Matrix Measures. Status flags
+ * always pair an icon with a label (never color alone).
  */
 export function MatrixTable({ model }: { model: MatrixModel }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
