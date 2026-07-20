@@ -1,87 +1,53 @@
 /**
- * The aggregation engine: turns a Selection (axis + legend + measures +
- * timeframe) into a chart model and a matrix model. Rates are always
- * recomputed from summed numerators and denominators - never averaged.
+ * The aggregation engine: turns a Selection (Set Bars + Set Lines + Plot By +
+ * grain + matrix measures + filters) into a dual-axis chart model and a
+ * drilldown matrix model. Rates are always recomputed from summed numerators
+ * and denominators - never averaged.
  */
 
 import { campaigns } from "./campaigns";
 import { listMonths, MONTHS } from "./listHealth";
 import {
-  AXES,
-  legendById,
+  BAR_COLOR,
+  LINE_COLOR,
   measureById,
-  PALETTE,
   TIMEFRAMES,
-  type AxisId,
-  type LegendId,
+  type GrainId,
   type MeasureId,
+  type PlotById,
   type TimeframeId,
   type Unit,
 } from "./measures";
-import type { CampaignSend, ListMonth } from "./types";
+import type { CampaignSend, ListMonth, ListName } from "./types";
 
 export interface Selection {
-  axis: AxisId | null;
-  legend: LegendId | null;
-  measures: MeasureId[];
+  /** Set Bars: the measure drawn as clustered columns (left axis). */
+  barMeasure: MeasureId | null;
+  /** Set Lines: the measure drawn as a line (right axis). */
+  lineMeasure: MeasureId | null;
+  /** Time grain for the x axis when plotting by a date field. */
+  grain: GrainId;
+  /** Plot By: the dimension the chart is plotted across. */
+  plotBy: PlotById;
+  /** Extra columns appended to the matrix (beyond the fixed six). */
+  matrixMeasures: MeasureId[];
+  /** Email Sent Date filter (month keys); null = every month in the timeframe. */
+  months: string[] | null;
+  /** Mailing List slicer; null = every list (the whole page is filtered). */
+  lists: ListName[] | null;
   timeframe: TimeframeId;
 }
 
 export const EMPTY_SELECTION: Selection = {
-  axis: null,
-  legend: null,
-  measures: [],
+  barMeasure: null,
+  lineMeasure: null,
+  grain: "month",
+  plotBy: "month",
+  matrixMeasures: [],
+  months: null,
+  lists: null,
   timeframe: "12m",
 };
-
-export interface SeriesModel {
-  key: string;
-  label: string;
-  color: string;
-  mark: "col" | "line";
-  measureId: MeasureId;
-  points: (number | null)[];
-}
-
-export interface PaneModel {
-  unit: Unit;
-  title: string;
-  series: SeriesModel[];
-  /** Draw the 2-5% per-send CTR benchmark band. */
-  ctrBand: boolean;
-}
-
-export interface ChartModel {
-  buckets: { key: string; label: string; sublabel?: string }[];
-  panes: PaneModel[];
-  notices: string[];
-}
-
-export interface MatrixColumn {
-  measureId: MeasureId;
-  label: string;
-  unit: Unit;
-}
-
-export interface MatrixFlag {
-  label: string;
-  severity: "warning" | "serious" | "critical";
-}
-
-export interface MatrixRow {
-  key: string;
-  label: string;
-  sublabel?: string;
-  values: (number | null)[];
-  flags: MatrixFlag[];
-}
-
-export interface MatrixModel {
-  title: string;
-  columns: MatrixColumn[];
-  rows: MatrixRow[];
-  total: (number | null)[] | null;
-}
 
 /* ---------- helpers ---------- */
 
@@ -94,23 +60,42 @@ const MONTH_LABELS: Record<string, string> = {
   "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun",
   "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec",
 };
-const monthLabel = (mk: string) => `${MONTH_LABELS[mk.slice(5)]} ${mk.slice(2, 4)}`;
+const MONTH_FULL: Record<string, string> = {
+  "01": "January", "02": "February", "03": "March", "04": "April", "05": "May", "06": "June",
+  "07": "July", "08": "August", "09": "September", "10": "October", "11": "November", "12": "December",
+};
+const monthLabel = (mk: string) => `${MONTH_LABELS[mk.slice(5)]} ${mk.slice(0, 4)}`;
+const monthFull = (mk: string) => `${MONTH_FULL[mk.slice(5)]} ${mk.slice(0, 4)}`;
 
-function activeMonths(timeframe: TimeframeId): string[] {
-  const start = TIMEFRAMES.find((t) => t.id === timeframe)!.startMonth;
-  return MONTHS.filter((m) => m >= start);
+function isoWeekKey(isoDate: string): string {
+  const d = new Date(isoDate + "T00:00:00Z");
+  const day = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - day + 3);
+  const firstThu = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const week = 1 + Math.round(((d.getTime() - firstThu.getTime()) / 86400000 - 3 + ((firstThu.getUTCDay() + 6) % 7)) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
-function activeCampaigns(timeframe: TimeframeId): CampaignSend[] {
-  const months = new Set(activeMonths(timeframe));
+function activeMonths(sel: Selection): string[] {
+  const start = TIMEFRAMES.find((t) => t.id === sel.timeframe)!.startMonth;
+  let ms = MONTHS.filter((m) => m >= start);
+  if (sel.months && sel.months.length > 0) ms = ms.filter((m) => sel.months!.includes(m));
+  return ms as unknown as string[];
+}
+
+function activeCampaigns(sel: Selection): CampaignSend[] {
+  const months = new Set(activeMonths(sel));
   return campaigns
     .filter((c) => months.has(monthKey(c.sentDate)))
+    .filter((c) => !sel.lists || sel.lists.includes(c.list))
     .sort((a, b) => a.sentDate.localeCompare(b.sentDate));
 }
 
-function activeListMonths(timeframe: TimeframeId): ListMonth[] {
-  const months = new Set(activeMonths(timeframe));
-  return listMonths.filter((l) => months.has(l.month));
+function activeListMonths(sel: Selection): ListMonth[] {
+  const months = new Set(activeMonths(sel));
+  return listMonths
+    .filter((l) => months.has(l.month))
+    .filter((l) => !sel.lists || sel.lists.includes(l.list));
 }
 
 /** Aggregate a set of sends into a measure value. Rates from summed parts. */
@@ -127,10 +112,12 @@ export function sendAggregate(rows: CampaignSend[], id: MeasureId): number | nul
     case "complaints": return sum((c) => c.complaints);
     case "revenue": return sum((c) => c.revenue);
     case "deliveryRate": return sum((c) => c.sent) ? sum((c) => c.delivered) / sum((c) => c.sent) : null;
+    case "bounceRate": return sum((c) => c.sent) ? sum((c) => c.bounces) / sum((c) => c.sent) : null;
     case "openRate": return sum((c) => c.delivered) ? sum((c) => c.opens) / sum((c) => c.delivered) : null;
     case "ctr": return sum((c) => c.delivered) ? sum((c) => c.clicks) / sum((c) => c.delivered) : null;
     case "ctor": return sum((c) => c.opens) ? sum((c) => c.clicks) / sum((c) => c.opens) : null;
     case "unsubRate": return sum((c) => c.delivered) ? sum((c) => c.unsubscribes) / sum((c) => c.delivered) : null;
+    case "complaintRate": return sum((c) => c.delivered) ? sum((c) => c.complaints) / sum((c) => c.delivered) : null;
     default: return null;
   }
 }
@@ -141,9 +128,8 @@ function listAggregate(rows: ListMonth[], id: MeasureId): number | null {
   const sum = (f: (l: ListMonth) => number) => rows.reduce((a, l) => a + f(l), 0);
   switch (id) {
     case "listMembers": {
-      const sorted = rows.map((r) => r.month).sort();
-      const lastMonth = sorted[sorted.length - 1];
-      return rows.filter((r) => r.month === lastMonth).reduce((a, l) => a + l.endMembers, 0);
+      const last = rows.map((r) => r.month).sort().pop();
+      return rows.filter((r) => r.month === last).reduce((a, l) => a + l.endMembers, 0);
     }
     case "listSubscribes": return sum((l) => l.subscribes);
     case "listUnsubscribes": return sum((l) => l.unsubscribes);
@@ -155,217 +141,198 @@ function listAggregate(rows: ListMonth[], id: MeasureId): number | null {
 
 /* ---------- chart ---------- */
 
+export interface ChartSeries {
+  measureId: MeasureId;
+  label: string;
+  unit: Unit;
+  color: string;
+  points: (number | null)[];
+}
+
+export interface ChartBucket {
+  key: string;
+  label: string;
+  sublabel?: string;
+}
+
+export interface ChartModel {
+  buckets: ChartBucket[];
+  bar: ChartSeries | null;
+  line: ChartSeries | null;
+  notices: string[];
+  plotByLabel: string;
+}
+
+const timeBucketKey = (isoDate: string, grain: GrainId): string => {
+  const mk = monthKey(isoDate);
+  switch (grain) {
+    case "year": return mk.slice(0, 4);
+    case "quarter": return quarterKey(mk);
+    case "month": return mk;
+    case "week": return isoWeekKey(isoDate);
+    case "date": return isoDate;
+  }
+};
+
+const timeBucketLabel = (key: string, grain: GrainId): string => {
+  switch (grain) {
+    case "year": return key;
+    case "quarter": return key.replace("-", " ");
+    case "month": return monthLabel(key);
+    case "week": return key.replace("-", " ");
+    case "date": return `${key.slice(8)}/${key.slice(5, 7)}`;
+  }
+};
+
 export function buildChart(sel: Selection): ChartModel {
   const notices: string[] = [];
-  if (!sel.axis || sel.measures.length === 0) {
-    return { buckets: [], panes: [], notices };
+  const plotByLabelText =
+    sel.plotBy === "month" ? "Email Sent Month"
+    : sel.plotBy === "send" ? "Individual Send"
+    : sel.plotBy === "list" ? "Mailing List"
+    : "Campaign Type";
+
+  if (!sel.barMeasure && !sel.lineMeasure) {
+    return { buckets: [], bar: null, line: null, notices, plotByLabel: plotByLabelText };
   }
 
-  const legend = sel.legend && sel.legend !== "none" ? legendById.get(sel.legend)! : null;
-  const sends = activeCampaigns(sel.timeframe);
-  const lists = activeListMonths(sel.timeframe);
+  const sends = activeCampaigns(sel);
+  const lists = activeListMonths(sel);
 
-  // Buckets
-  let buckets: ChartModel["buckets"];
-  if (sel.axis === "month") {
-    buckets = activeMonths(sel.timeframe).map((m) => ({ key: m, label: monthLabel(m) }));
-  } else if (sel.axis === "quarter") {
-    const qs = [...new Set(activeMonths(sel.timeframe).map(quarterKey))];
-    buckets = qs.map((q) => ({ key: q, label: q }));
+  // Build the buckets and, for each, a way to fetch the sends / list-months in it.
+  let buckets: ChartBucket[];
+  let sendsIn: (key: string) => CampaignSend[];
+  let listsIn: (key: string) => ListMonth[];
+
+  if (sel.plotBy === "send") {
+    buckets = sends.map((c) => ({ key: c.id, label: c.sentDate.slice(5).replace("-", "/"), sublabel: c.name }));
+    sendsIn = (k) => sends.filter((c) => c.id === k);
+    listsIn = () => [];
+  } else if (sel.plotBy === "list") {
+    const names = [...new Set([...sends.map((c) => c.list), ...lists.map((l) => l.list)])];
+    buckets = names.map((n) => ({ key: n, label: n }));
+    sendsIn = (k) => sends.filter((c) => c.list === k);
+    listsIn = (k) => lists.filter((l) => l.list === k);
+  } else if (sel.plotBy === "type") {
+    const types = [...new Set(sends.map((c) => c.type))];
+    buckets = types.map((t) => ({ key: t, label: t }));
+    sendsIn = (k) => sends.filter((c) => c.type === k);
+    listsIn = () => [];
   } else {
-    buckets = sends.map((c) => ({
-      key: c.id,
-      label: c.sentDate.slice(5).replace("-", "/"),
-      sublabel: c.name,
-    }));
+    const keys = [...new Set(sends.map((c) => timeBucketKey(c.sentDate, sel.grain)))].sort();
+    buckets = keys.map((k) => ({ key: k, label: timeBucketLabel(k, sel.grain) }));
+    sendsIn = (k) => sends.filter((c) => timeBucketKey(c.sentDate, sel.grain) === k);
+    listsIn = (k) => (sel.grain === "month" ? lists.filter((l) => l.month === k) : lists.filter((l) => quarterKey(l.month) === k || l.month.slice(0, 4) === k));
   }
 
-  const selected = sel.measures
-    .map((id) => measureById.get(id)!)
-    .filter(Boolean);
-
-  // Validity: list measures never attach to individual sends.
-  let usable = selected;
-  if (sel.axis === "send" && selected.some((m) => m.kind === "list")) {
-    usable = selected.filter((m) => m.kind !== "list");
-    notices.push(
-      "List measures describe the audience, not a send - they are hidden on the Individual send axis. Switch the plot axis to Month to see them.",
-    );
-  }
-  // Validity: campaign-type legend doesn't slice list measures.
-  if (legend && legend.id === "type" && usable.some((m) => m.kind === "list")) {
-    usable = usable.filter((m) => m.kind !== "list");
-    notices.push(
-      "Campaign type doesn't slice list measures (a list isn't a campaign). Use the Mailing list legend, or None.",
-    );
-  }
-  // Guidance: CTR is a per-send verdict.
-  if (usable.some((m) => m.id === "ctr") && sel.axis !== "send") {
-    notices.push(
-      "CTR is judged per send against the 2-5% band. On an aggregated axis, sends and their clicks blur together - read CTOR here instead, and switch to the Individual send axis to judge CTR.",
-    );
-  }
-
-  const rowsFor = (bucketKey: string, legendKey?: string) => {
-    if (sel.axis === "send") {
-      return sends.filter((c) => c.id === bucketKey);
+  const seriesFor = (id: MeasureId | null, color: string): ChartSeries | null => {
+    if (!id) return null;
+    const def = measureById.get(id)!;
+    const listKind = def.kind === "list";
+    if (listKind && (sel.plotBy === "send" || sel.plotBy === "type")) {
+      notices.push(`${def.label} describes the audience, not a send - plot by Email Sent Month or Mailing List to see it.`);
+      return null;
     }
-    const inBucket =
-      sel.axis === "month"
-        ? sends.filter((c) => monthKey(c.sentDate) === bucketKey)
-        : sends.filter((c) => quarterKey(monthKey(c.sentDate)) === bucketKey);
-    if (!legendKey || !legend) return inBucket;
-    return inBucket.filter((c) =>
-      legend.id === "type" ? c.type === legendKey : c.list === legendKey,
-    );
+    return {
+      measureId: id,
+      label: def.label,
+      unit: def.unit,
+      color,
+      points: buckets.map((b) => (listKind ? listAggregate(listsIn(b.key), id) : sendAggregate(sendsIn(b.key), id))),
+    };
   };
 
-  const listRowsFor = (bucketKey: string, legendKey?: string) => {
-    const inBucket =
-      sel.axis === "month"
-        ? lists.filter((l) => l.month === bucketKey)
-        : lists.filter((l) => quarterKey(l.month) === bucketKey);
-    if (!legendKey) return inBucket;
-    return inBucket.filter((l) => l.list === legendKey);
-  };
+  const bar = seriesFor(sel.barMeasure, BAR_COLOR);
+  const line = seriesFor(sel.lineMeasure, LINE_COLOR);
 
-  // Group usable measures by unit -> panes (never two scales on one axis).
-  const unitOrder: Unit[] = ["count", "percent", "currency"];
-  const panes: PaneModel[] = [];
-  const paneTitles: Record<Unit, string> = {
-    count: "Volume",
-    percent: "Rates",
-    currency: "Revenue",
-  };
-
-  for (const unit of unitOrder) {
-    const paneMeasures = usable.filter((m) => m.unit === unit);
-    if (paneMeasures.length === 0) continue;
-
-    let series: SeriesModel[];
-    if (legend) {
-      // Legend splits the first measure of the pane; the rest go to the matrix.
-      const first = paneMeasures[0];
-      if (paneMeasures.length > 1) {
-        notices.push(
-          `With a legend, the chart splits ${first.label} by ${legend.label.toLowerCase()}; the other ${paneTitles[unit].toLowerCase()} measures stay in the matrix below.`,
-        );
-      }
-      const legendValues =
-        first.kind === "list" ? legendById.get("list")!.values : legend.values;
-      series = legendValues.map((v) => ({
-        key: `${first.id}:${v.key}`,
-        label: v.label,
-        color: PALETTE[(v.slot - 1) % PALETTE.length],
-        mark: "col" as const,
-        measureId: first.id,
-        points: buckets.map((b) => {
-          if (first.kind === "list") {
-            if (sel.axis === "send") return null;
-            return listAggregate(listRowsFor(b.key, v.key), first.id);
-          }
-          return sendAggregate(rowsFor(b.key, v.key), first.id);
-        }),
-      }));
-    } else {
-      series = paneMeasures.map((m, i) => ({
-        key: m.id,
-        label: m.label,
-        color: PALETTE[(m.slot - 1) % PALETTE.length],
-        // Rates read as lines; volumes and money as columns. Within a
-        // mixed-volume pane the first measure takes columns, the rest lines
-        // (the classic line-and-column combo, one scale per pane).
-        mark: unit === "percent" ? ("line" as const) : i === 0 ? ("col" as const) : ("line" as const),
-        measureId: m.id,
-        points: buckets.map((b) => {
-          if (m.kind === "list") {
-            if (sel.axis === "send") return null;
-            return listAggregate(listRowsFor(b.key), m.id);
-          }
-          return sendAggregate(rowsFor(b.key), m.id);
-        }),
-      }));
-    }
-
-    panes.push({
-      unit,
-      title: paneTitles[unit],
-      series,
-      ctrBand:
-        unit === "percent" &&
-        sel.axis === "send" &&
-        paneMeasures.some((m) => m.id === "ctr"),
-    });
+  if (sel.barMeasure === "ctr" && sel.plotBy !== "send") {
+    notices.push("CTR is judged per send against the 2-5% band. On an aggregated axis, read CTOR instead, or plot by Individual Send.");
   }
 
-  return { buckets, panes, notices };
+  return { buckets, bar, line, notices, plotByLabel: plotByLabelText };
 }
 
-/* ---------- matrix ---------- */
+/* ---------- matrix (fixed columns, Month -> Send drilldown) ---------- */
 
-export function buildMatrices(sel: Selection): MatrixModel[] {
-  if (!sel.axis || sel.measures.length === 0) return [];
-  const models: MatrixModel[] = [];
-  const selected = sel.measures.map((id) => measureById.get(id)!).filter(Boolean);
-  const sendMeasures = selected.filter((m) => m.kind === "send");
-  const listMeasures = selected.filter((m) => m.kind === "list");
-  const sends = activeCampaigns(sel.timeframe);
-  const lists = activeListMonths(sel.timeframe);
+export interface MatrixColumn {
+  measureId: MeasureId;
+  label: string;
+  unit: Unit;
+}
 
-  if (sendMeasures.length > 0) {
-    const columns = sendMeasures.map((m) => ({ measureId: m.id, label: m.label, unit: m.unit }));
-    const rows: MatrixRow[] = sends.map((c) => {
-      const flags: MatrixFlag[] = [];
-      const delivery = c.delivered / c.sent;
-      const openRate = c.opens / c.delivered;
-      const ctr = c.clicks / c.delivered;
-      const complaintRate = c.complaints / c.delivered;
-      if (delivery < 0.95) flags.push({ label: "Delivery below 95%", severity: "critical" });
-      if (complaintRate >= 0.001) flags.push({ label: "Complaints at alarm level", severity: "serious" });
-      if (openRate < 0.25 && delivery >= 0.95) flags.push({ label: "Low opens - subject line", severity: "warning" });
-      if (ctr < 0.02 && openRate >= 0.25) flags.push({ label: "Low CTR - body / CTA", severity: "warning" });
-      return {
+export interface MatrixFlag {
+  label: string;
+  severity: "warning" | "serious" | "critical";
+}
+
+export interface MatrixSend {
+  key: string;
+  name: string;
+  values: (number | null)[];
+  flags: MatrixFlag[];
+}
+
+export interface MatrixMonth {
+  key: string;
+  label: string;
+  values: (number | null)[];
+  flags: MatrixFlag[];
+  sends: MatrixSend[];
+}
+
+export interface MatrixModel {
+  columns: MatrixColumn[];
+  months: MatrixMonth[];
+  total: (number | null)[];
+}
+
+const FIXED_MATRIX_IDS: MeasureId[] = [
+  "sent", "delivered", "deliveryRate", "bounces", "bounceRate", "complaints",
+];
+
+function sendFlags(c: CampaignSend): MatrixFlag[] {
+  const flags: MatrixFlag[] = [];
+  const delivery = c.sent ? c.delivered / c.sent : 1;
+  const openRate = c.delivered ? c.opens / c.delivered : 0;
+  const ctr = c.delivered ? c.clicks / c.delivered : 0;
+  const complaintRate = c.delivered ? c.complaints / c.delivered : 0;
+  if (delivery < 0.95) flags.push({ label: "Delivery below 95%", severity: "critical" });
+  if (complaintRate >= 0.001) flags.push({ label: "Complaints at alarm level", severity: "serious" });
+  if (openRate < 0.25 && delivery >= 0.95) flags.push({ label: "Low opens - subject line", severity: "warning" });
+  if (ctr < 0.02 && openRate >= 0.25) flags.push({ label: "Low CTR - body / CTA", severity: "warning" });
+  return flags;
+}
+
+export function buildMatrix(sel: Selection): MatrixModel {
+  const ids = [...FIXED_MATRIX_IDS];
+  for (const m of sel.matrixMeasures) if (!ids.includes(m)) ids.push(m);
+  const columns: MatrixColumn[] = ids.map((id) => {
+    const d = measureById.get(id)!;
+    return { measureId: id, label: d.colLabel, unit: d.unit };
+  });
+
+  const sends = activeCampaigns(sel);
+  const monthKeys = [...new Set(sends.map((c) => monthKey(c.sentDate)))].sort();
+
+  const months: MatrixMonth[] = monthKeys.map((mk) => {
+    const inMonth = sends.filter((c) => monthKey(c.sentDate) === mk);
+    const monthDelivery = sendAggregate(inMonth, "deliveryRate");
+    const flags: MatrixFlag[] = monthDelivery !== null && monthDelivery < 0.95
+      ? [{ label: "Delivery below 95%", severity: "critical" }]
+      : [];
+    return {
+      key: mk,
+      label: monthFull(mk),
+      values: ids.map((id) => sendAggregate(inMonth, id)),
+      flags,
+      sends: inMonth.map((c) => ({
         key: c.id,
-        label: c.name,
-        sublabel: c.subject,
-        values: sendMeasures.map((m) => sendAggregate([c], m.id)),
-        flags,
-      };
-    });
-    models.push({
-      title: "Campaign sends",
-      columns,
-      rows,
-      total: sendMeasures.map((m) => sendAggregate(sends, m.id)),
-    });
-  }
+        name: c.name,
+        values: ids.map((id) => sendAggregate([c], id)),
+        flags: sendFlags(c),
+      })),
+    };
+  });
 
-  if (listMeasures.length > 0) {
-    const columns = listMeasures.map((m) => ({ measureId: m.id, label: m.label, unit: m.unit }));
-    const listNames = [...new Set(lists.map((l) => l.list))];
-    const rows: MatrixRow[] = listNames.map((name) => {
-      const rowsForList = lists.filter((l) => l.list === name);
-      const net = rowsForList.reduce((a, l) => a + l.subscribes - l.unsubscribes - l.cleaned, 0);
-      const flags: MatrixFlag[] =
-        net < 0 ? [{ label: "Eroding - net loss over the period", severity: "serious" }] : [];
-      return {
-        key: name,
-        label: name,
-        values: listMeasures.map((m) => listAggregate(rowsForList, m.id)),
-        flags,
-      };
-    });
-    models.push({
-      title: "Mailing lists",
-      columns,
-      rows,
-      total: listMeasures.map((m) => listAggregate(lists, m.id)),
-    });
-  }
-
-  return models;
-}
-
-export function axisLabel(axis: AxisId | null): string {
-  return AXES.find((a) => a.id === axis)?.label ?? "";
+  return { columns, months, total: ids.map((id) => sendAggregate(sends, id)) };
 }

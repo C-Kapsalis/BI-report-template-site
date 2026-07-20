@@ -18,14 +18,15 @@ export const GUIDES: GuideDef[] = [
   {
     id: "funnel",
     title: "Deliverability & send quality",
-    bookmarkId: "campaign-funnel",
+    bookmarkId: "email-overview",
     body: (
       <>
         <p>
           Every send runs the same short sequence: <strong>sent → delivered → opened →
           clicked</strong>. Each step leaks for a different reason, and one headline number
-          hides which step is failing. The <em>Campaign Funnel</em> bookmark plots the four
-          counts side by side, one cluster per send, so the leak is visible at a glance.
+          hides which step is failing. The <em>Email Overview</em> bookmark plots emails
+          sent as columns against delivered as the line, month by month, so the gap between
+          what you send and what reaches an inbox is visible at a glance.
         </p>
         <p>
           <strong>Deliverability is the gate.</strong> Before opens or clicks mean anything,
@@ -40,9 +41,9 @@ export const GUIDES: GuideDef[] = [
           <strong>The early warning is a bounce rate that climbs while volume holds
           steady.</strong> That is list hygiene lapsing in slow motion. In this demo the
           December winback send to the dormant legacy list shows exactly this signature:
-          delivery around 91%, a bounce spike, and a complaint rate at alarm level. The
-          matrix flags it — and the right response is to clean or retire the segment, not to
-          resend harder.
+          delivery around 91%, a bounce spike, and a complaint rate at alarm level. Drill
+          December in the matrix and that send is flagged — and the right response is to
+          clean or retire the segment, not to resend harder.
         </p>
         <p>
           <strong>Complaints are non-negotiable.</strong> A spam complaint rate of 0.1% is a
@@ -51,12 +52,11 @@ export const GUIDES: GuideDef[] = [
           tighten segmentation rather than pushing more volume through a cracking reputation.
         </p>
         <p>
-          <strong>What the bookmark reveals:</strong> scan the gap between the first two
-          columns of each cluster (sent vs delivered). Healthy sends show almost none.
-          Then compare the shape of the funnel across sends — a send whose opens column
-          collapses had a subject problem; one whose clicks column collapses despite healthy
-          opens had a content problem. Those two failure modes are the subject of the next
-          guide.
+          <strong>What the bookmark reveals:</strong> scan the gap between the columns
+          (sent) and the line (delivered) each month — healthy months show almost none. When
+          a month looks off, drill it in the matrix to find the send that caused a bounce or
+          complaint spike. The two engagement failure modes — a lost subject vs a squandered
+          open — are the subject of the next guide.
         </p>
       </>
     ),
@@ -93,17 +93,18 @@ export const GUIDES: GuideDef[] = [
         </p>
         <p>
           Read the two together and each weak send diagnoses itself. In this demo, the
-          December flash sale opened at 48% but clicked at ~1% — a{" "}
+          May flash-sale promotion opened at 48% but converted only ~2% of those opens — a{" "}
           <strong>copy/CTA problem</strong>: the subject earned the open and the body
-          squandered it. The February newsletter opened at 18% with a normal CTOR — a{" "}
+          squandered it. A March broadcast opened at 12% with a normal CTOR — a{" "}
           <strong>subject-line problem</strong>: the content was fine, but nobody arrived to
-          see it. Same low CTR, opposite fixes.
+          see it. Opposite failures, opposite fixes.
         </p>
         <p>
-          <strong>What the bookmark reveals:</strong> find sends below the band, then check
-          their open rate. High opens + low CTR → rewrite the body and the call to action.
-          Low opens → rewrite the subject. Never fix both at once, or you won't know which
-          change worked.
+          <strong>What the bookmark reveals:</strong> Engagement plots opens as columns and
+          CTOR as the line, with CTR itemized per send in the matrix. Drill a month, find the
+          sends below the 2–5% band, then check each one's open rate. High opens + low CTR →
+          rewrite the body and the call to action. Low opens → rewrite the subject. Never fix
+          both at once, or you won't know which change worked.
         </p>
       </>
     ),
@@ -155,14 +156,14 @@ export const GUIDES: GuideDef[] = [
   {
     id: "revenue",
     title: "Campaigns over time & revenue",
-    bookmarkId: "email-overview",
+    bookmarkId: "campaign-funnel",
     body: (
       <>
         <p>
-          The <em>Email Overview</em> bookmark is the monthly report: volumes, rates and
-          revenue on one canvas, month by month, with every send itemized in the matrix
-          below. It is the view to open first — and the view to end on, because email's case
-          to the business is made in currency, not clicks.
+          The <em>Monthly Report</em> bookmark puts delivered against attributed revenue,
+          month by month, with opens, clicks and revenue itemized in the matrix below. It is
+          the view to end on, because email's case to the business is made in currency, not
+          clicks.
         </p>
         <p>
           <strong>Email earns its keep quietly.</strong> The list is an audience you already
@@ -219,6 +220,6 @@ export const GLOSSARY: GlossaryEntry[] = [
   { term: "List Active Members", definition: "Addresses currently subscribed and mailable, at the end of the period." },
   { term: "List Cleaned", definition: "Addresses removed by hygiene: hard bounces, spam traps, inactive purges." },
   { term: "List Net Change", definition: "Subscribes - unsubscribes - cleaned, per period. The list's true trajectory; healthy lists grow 2-5% per month." },
-  { term: "Field parameter", definition: "A selector that swaps which field a visual uses - the mechanism behind this template's Plot axis, Legend and Measures panels." },
-  { term: "Bookmark", definition: "A saved pre-selection of the selectors (axis, legend, measures, filters) that answers one recurring question. Not a copy of the data - just the selection." },
+  { term: "Field parameter", definition: "A selector that swaps which field a visual uses - the mechanism behind Set Bars, Set Lines and Plot By." },
+  { term: "Bookmark", definition: "A saved pre-selection of the slicers (measures, Plot By, grain, filters) that answers one recurring question. Not a copy of the data - just the selection." },
 ];

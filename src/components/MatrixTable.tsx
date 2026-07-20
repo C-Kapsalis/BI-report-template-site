@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fmtValue } from "../data/measures";
+import { fmtCell } from "../data/measures";
 import type { MatrixModel } from "../data/series";
 
 const SEVERITY_ICON: Record<string, string> = {
@@ -9,108 +9,102 @@ const SEVERITY_ICON: Record<string, string> = {
 };
 
 /**
- * The matrix visual: one row per campaign send (or mailing list), one column
- * per selected measure, a recomputed total row, and status flags that always
+ * The drilldown matrix: one row per Email Sent Month, expandable (+/-) to the
+ * individual sends within that month, with a recomputed Total row. Columns are
+ * the fixed six email metrics plus any additional measures. Status flags always
  * pair an icon with a label (never color alone).
  */
 export function MatrixTable({ model }: { model: MatrixModel }) {
-  const [sortCol, setSortCol] = useState<number | null>(null);
-  const [sortDesc, setSortDesc] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const rows = [...model.rows];
-  if (sortCol !== null) {
-    rows.sort((a, b) => {
-      const av = a.values[sortCol] ?? -Infinity;
-      const bv = b.values[sortCol] ?? -Infinity;
-      return sortDesc ? bv - av : av - bv;
+  const toggle = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
     });
-  }
 
-  const onSort = (i: number) => {
-    if (sortCol === i) {
-      if (sortDesc) setSortDesc(false);
-      else {
-        setSortCol(null);
-        setSortDesc(true);
-      }
-    } else {
-      setSortCol(i);
-      setSortDesc(true);
-    }
-  };
+  const colCount = model.columns.length;
 
   return (
     <div className="matrix">
-      <div className="matrix-head-row">
-        <h3 className="matrix-title">{model.title}</h3>
-        <span className="matrix-hint">Select a column header to sort</span>
-      </div>
       <div className="matrix-scroll">
         <table>
           <thead>
             <tr>
-              <th scope="col" className="row-label-col">
-                {model.title === "Mailing lists" ? "List" : "Send"}
-              </th>
-              {model.columns.map((c, i) => (
-                <th
-                  key={c.measureId}
-                  scope="col"
-                  className="num"
-                  aria-sort={
-                    sortCol === i ? (sortDesc ? "descending" : "ascending") : undefined
-                  }
-                >
-                  <button
-                    className="sort-btn"
-                    onClick={() => onSort(i)}
-                    title={`Sort by ${c.label}`}
-                  >
-                    {c.label}
-                    {sortCol === i && <span aria-hidden> {sortDesc ? "↓" : "↑"}</span>}
-                  </button>
-                </th>
+              <th scope="col" className="row-label-col">Email Sent Month</th>
+              {model.columns.map((c) => (
+                <th key={c.measureId} scope="col" className="num">{c.label}</th>
               ))}
-              <th scope="col">Flags</th>
+              <th scope="col" className="flags-head">Flags</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.key}>
-                <td className="row-label-col">
-                  <span className="row-label">{r.label}</span>
-                  {r.sublabel && <span className="row-sublabel">{r.sublabel}</span>}
-                </td>
-                {r.values.map((v, i) => (
-                  <td key={i} className="num">
-                    {fmtValue(v, model.columns[i].unit)}
-                  </td>
-                ))}
-                <td className="flags-col">
-                  {r.flags.map((f) => (
-                    <span key={f.label} className={`flag flag-${f.severity}`}>
-                      <span aria-hidden>{SEVERITY_ICON[f.severity]}</span> {f.label}
-                    </span>
-                  ))}
-                </td>
-              </tr>
-            ))}
+            {model.months.map((m) => {
+              const open = expanded.has(m.key);
+              return (
+                <FragmentRows key={m.key}>
+                  <tr className="matrix-month-row">
+                    <th scope="row" className="row-label-col">
+                      <button
+                        type="button"
+                        className="matrix-expand"
+                        aria-expanded={open}
+                        aria-label={`${open ? "Collapse" : "Expand"} ${m.label} (${m.sends.length} sends)`}
+                        onClick={() => toggle(m.key)}
+                      >
+                        <span className="matrix-expand-icon" aria-hidden>{open ? "−" : "+"}</span>
+                        <span className="matrix-month-name">{m.label}</span>
+                      </button>
+                    </th>
+                    {m.values.map((v, i) => (
+                      <td key={i} className="num">{fmtCell(v, model.columns[i].measureId, model.columns[i].unit)}</td>
+                    ))}
+                    <td className="flags-col">
+                      {m.flags.map((f) => (
+                        <span key={f.label} className={`flag flag-${f.severity}`}>
+                          <span aria-hidden>{SEVERITY_ICON[f.severity]}</span> {f.label}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                  {open &&
+                    m.sends.map((s) => (
+                      <tr key={s.key} className="matrix-send-row">
+                        <td className="row-label-col send-label">{s.name}</td>
+                        {s.values.map((v, i) => (
+                          <td key={i} className="num">{fmtCell(v, model.columns[i].measureId, model.columns[i].unit)}</td>
+                        ))}
+                        <td className="flags-col">
+                          {s.flags.map((f) => (
+                            <span key={f.label} className={`flag flag-${f.severity}`}>
+                              <span aria-hidden>{SEVERITY_ICON[f.severity]}</span> {f.label}
+                            </span>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
+                </FragmentRows>
+              );
+            })}
           </tbody>
-          {model.total && (
-            <tfoot>
-              <tr>
-                <td className="row-label-col">Total</td>
-                {model.total.map((v, i) => (
-                  <td key={i} className="num">
-                    {fmtValue(v, model.columns[i].unit)}
-                  </td>
-                ))}
-                <td />
-              </tr>
-            </tfoot>
-          )}
+          <tfoot>
+            <tr>
+              <th scope="row" className="row-label-col">Total</th>
+              {model.total.map((v, i) => (
+                <td key={i} className="num">{fmtCell(v, model.columns[i].measureId, model.columns[i].unit)}</td>
+              ))}
+              <td />
+            </tr>
+          </tfoot>
         </table>
+        <p className="visually-hidden">Table has {colCount} measure columns across {model.months.length} months.</p>
       </div>
     </div>
   );
+}
+
+/** Group sibling rows without introducing a wrapping element in the table. */
+function FragmentRows({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }

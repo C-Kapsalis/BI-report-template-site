@@ -1,39 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { BookmarkDef } from "../state/bookmarks";
 
 /**
- * The hamburger flyout: a channel index in the tradition of single-canvas
- * report templates. Every marketing channel has a slot; in this demo only
- * the Email submenu is stocked. Selecting an email view applies its bookmark
- * to the one canvas - no page navigation happens.
+ * The hamburger menu, simplified to a single flat list of the four report
+ * views. Each item applies its bookmark's pre-selection to the canvas - no
+ * page navigation happens. Styled as the target's dark right-side panel, with
+ * the active view highlighted.
  */
-
-const PLACEHOLDER_CHANNELS = [
-  "Overview",
-  "Spend",
-  "Web Analytics",
-  "Search (SEO)",
-  "Paid Search",
-  "Social Media",
-  "Competition",
-  "Site Speed",
-  "Video",
-];
-
 export function MainMenu({
   open,
   bookmarks,
+  activeBookmarkId,
   onApplyBookmark,
-  onOpenGuide,
   onClose,
 }: {
   open: boolean;
   bookmarks: BookmarkDef[];
+  activeBookmarkId: string | null;
   onApplyBookmark: (id: string) => void;
-  onOpenGuide: (guideId: string) => void;
   onClose: () => void;
 }) {
-  const [emailOpen, setEmailOpen] = useState(true);
   const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -62,75 +48,37 @@ export function MainMenu({
         ref={panelRef}
         id="report-menu"
         className="main-menu"
-        aria-label="Report menu"
+        aria-label="Report views"
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="menu-head">
-          <span className="menu-title">Channels</span>
-          <button className="icon-btn" onClick={onClose} aria-label="Close menu">
-            ✕
-          </button>
+          <span className="menu-title">Email Analytics</span>
+          <button className="icon-btn menu-close" onClick={onClose} aria-label="Close menu">✕</button>
         </div>
-
-        <ul className="menu-list">
-          {PLACEHOLDER_CHANNELS.map((c) => (
-            <li key={c}>
-              <span className="menu-item placeholder">
-                {c}
-                <span className="menu-tag">in template</span>
-              </span>
-            </li>
-          ))}
-          <li>
-            <button
-              className="menu-item email"
-              aria-expanded={emailOpen}
-              onClick={() => setEmailOpen((v) => !v)}
-            >
-              Email Marketing
-              <span className="menu-caret" aria-hidden>
-                {emailOpen ? "▾" : "▸"}
-              </span>
-            </button>
-            {emailOpen && (
-              <ul className="submenu">
-                {bookmarks.map((b) => (
-                  <li key={b.id} className="submenu-row">
-                    <button
-                      className="submenu-item"
-                      onClick={() => {
-                        onApplyBookmark(b.id);
-                        onClose();
-                      }}
-                    >
-                      <span className="submenu-name">{b.name}</span>
-                      <span className="submenu-desc">{b.description}</span>
-                    </button>
-                    {b.guideId && (
-                      <button
-                        className="icon-btn guide-icon"
-                        title={`Read the guide for ${b.name}`}
-                        aria-label={`Read the guide for ${b.name}`}
-                        onClick={() => {
-                          onOpenGuide(b.guideId!);
-                          onClose();
-                        }}
-                      >
-                        📖
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </li>
+        <ul className="menu-list" role="list">
+          {bookmarks.map((b) => {
+            const active = activeBookmarkId === b.id;
+            return (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  className={active ? "menu-item active" : "menu-item"}
+                  aria-current={active ? "true" : undefined}
+                  data-tour={b.id === bookmarks[1]?.id ? "menu-item-2" : undefined}
+                  onClick={() => {
+                    onApplyBookmark(b.id);
+                    onClose();
+                  }}
+                >
+                  <span className="menu-item-label">{b.menuLabel}</span>
+                  <span className="menu-item-desc">{b.description}</span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
-
-        <p className="menu-foot">
-          One canvas, many views. The other channels are part of the template layout - this
-          demo stocks the Email submenu.
-        </p>
+        <p className="menu-foot">One canvas, four saved views. Choosing a view applies its selectors to the report.</p>
       </nav>
     </div>
   );

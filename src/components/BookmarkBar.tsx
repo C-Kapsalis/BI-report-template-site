@@ -16,7 +16,7 @@ export function BookmarkBar({ onOpenGuide }: { onOpenGuide: (guideId: string) =>
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const wasSaving = useRef(false);
 
-  const canSave = Boolean(selection.axis) && selection.measures.length > 0;
+  const canSave = Boolean(selection.barMeasure || selection.lineMeasure);
 
   // When the save form closes (saved or cancelled), return focus to the
   // save button so keyboard users are not dropped at the page root.
@@ -38,7 +38,7 @@ export function BookmarkBar({ onOpenGuide }: { onOpenGuide: (guideId: string) =>
 
   return (
     <div className="bookmark-bar" data-tour="bookmarks">
-      <span className="bookmark-bar-label">Bookmarks</span>
+      <span className="bookmark-bar-label">Views</span>
       {builtinBookmarks.map((b) => (
         <span
           key={b.id}

@@ -2,6 +2,8 @@
 
 **A reporting template for marketers who have the tools but not the analyst.**
 
+**Live demo: [try the one-canvas email report](https://bi-report-template-site.vercel.app/)**
+
 You have Power BI, or Looker, or your email platform's dashboard — and nobody whose job it
 is to make them speak your language. So reporting becomes a monthly ritual of screenshots
 and a spreadsheet you rebuild by hand, and the dashboards themselves feel like they were
@@ -17,22 +19,22 @@ about two minutes.
 
 ## What you'll see
 
-**The report** (`/`) opens on a working email report with a hamburger menu, a selector
-panel, and four built-in bookmarks. Each answers one recurring question:
+**The report** (`/`) opens on a working email report with a hamburger menu, slicer
+controls, and four built-in bookmarks. Each answers one recurring question:
 
 | Bookmark | The question it answers |
 |---|---|
-| **Email Overview** | How did the program do this month — volumes, rates, and revenue? |
-| **Campaign Funnel** | Where does each send leak — sent, delivered, opened, or clicked? |
-| **The Click: CTR vs CTOR** | Which sends earned the open but lost the click? |
+| **Email Overview** | Are we reaching the inbox — emails sent vs delivered, month by month? |
+| **Monthly Report** | How did the month do end to end — delivered, engagement, and revenue? |
+| **Engagement** | Which sends earned the open but lost the click? |
 | **List Health** | Is the audience underneath all these sends growing or quietly shrinking? |
 
 Click between them and watch the chart and matrix redraw — no page ever changes, only the
 selection. Every bookmark has a 📖 guide (also under the **Guides** button) explaining the
 marketing thinking behind that view, plus a glossary tab so no metric goes undefined.
 
-**The tutorial** (`/tutorial`) is the same report started **blank** — no axis, no legend,
-no measures, an empty canvas. That's deliberate: the fastest way to understand that
+**The tutorial** (`/tutorial`) is the same report started **blank** — nothing selected,
+an empty canvas. That's deliberate: the fastest way to understand that
 everything on screen comes from the selectors is to start with none and build a view
 yourself. Seven coached steps walk you through picking dimensions and measures, saving
 your view as a bookmark, jumping to a built-in one, and coming back to yours — ending on

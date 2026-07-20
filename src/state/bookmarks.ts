@@ -1,14 +1,18 @@
 import type { Selection } from "../data/series";
 
 /**
- * A bookmark is a saved pre-selection of the selector panel - nothing more.
- * See docs/reference/bookmark-shape.md for the contract and
- * docs/explanation/one-canvas-philosophy.md for why the template works
- * this way.
+ * A bookmark is a saved pre-selection of the canvas selectors - Set Bars,
+ * Set Lines, Plot By, the time grain, and any extra matrix measures - nothing
+ * more. See docs/reference/bookmark-shape.md for the contract and
+ * docs/explanation/one-canvas-philosophy.md for why the template works this
+ * way.
  */
 export interface BookmarkDef {
   id: string;
+  /** Full name (used in the bookmark bar and as the canvas title). */
   name: string;
+  /** Short label echoed in the hamburger menu, e.g. "1 · Reach & Delivery". */
+  menuLabel: string;
   /** One-line promise: the recurring question this view answers. */
   description: string;
   selection: Selection;
@@ -25,37 +29,52 @@ export const BUILTIN_BOOKMARKS: BookmarkDef[] = [
   {
     id: "email-overview",
     name: "Email Overview",
-    description: "The monthly report: the whole funnel, rates and revenue, month by month.",
+    menuLabel: "1 · Reach & Delivery",
+    description: "Emails sent as columns, delivered as the line - the reach-and-delivery view, month by month.",
     selection: {
-      axis: "month",
-      legend: "none",
-      measures: ["sent", "delivered", "opens", "clicks", "openRate", "ctor", "revenue"],
-      timeframe: "12m",
-    },
-    guideId: "revenue",
-    builtin: true,
-  },
-  {
-    id: "campaign-funnel",
-    name: "Campaign Funnel",
-    description: "Sent, delivered, opened, clicked - one cluster per send. Where does each send leak?",
-    selection: {
-      axis: "send",
-      legend: "none",
-      measures: ["sent", "delivered", "opens", "clicks"],
+      barMeasure: "sent",
+      lineMeasure: "delivered",
+      grain: "month",
+      plotBy: "month",
+      matrixMeasures: [],
+      months: null,
+      lists: null,
       timeframe: "12m",
     },
     guideId: "funnel",
     builtin: true,
   },
   {
-    id: "the-click",
-    name: "The Click: CTR vs CTOR",
-    description: "Per-send click quality against the 2-5% CTR band. Which sends earned the open but lost the click?",
+    id: "campaign-funnel",
+    name: "Monthly Report",
+    menuLabel: "2 · Monthly Report",
+    description: "Delivered against attributed revenue, with opens and clicks itemized in the matrix. The whole monthly funnel.",
     selection: {
-      axis: "send",
-      legend: "none",
-      measures: ["openRate", "ctr", "ctor"],
+      barMeasure: "delivered",
+      lineMeasure: "revenue",
+      grain: "month",
+      plotBy: "month",
+      matrixMeasures: ["opens", "clicks", "revenue"],
+      months: null,
+      lists: null,
+      timeframe: "12m",
+    },
+    guideId: "revenue",
+    builtin: true,
+  },
+  {
+    id: "the-click",
+    name: "Engagement",
+    menuLabel: "3 · Engagement",
+    description: "Opens as columns, CTOR as the line - click quality month by month, with per-send rates in the matrix.",
+    selection: {
+      barMeasure: "opens",
+      lineMeasure: "ctor",
+      grain: "month",
+      plotBy: "month",
+      matrixMeasures: ["openRate", "ctr", "ctor"],
+      months: null,
+      lists: null,
       timeframe: "12m",
     },
     guideId: "click",
@@ -64,16 +83,21 @@ export const BUILTIN_BOOKMARKS: BookmarkDef[] = [
   {
     id: "list-health",
     name: "List Health",
-    description: "The audience beneath the sends: net member change by mailing list, month by month.",
+    menuLabel: "4 · List Health",
+    description: "Net change and active members by mailing list - the audience beneath the sends.",
     selection: {
-      axis: "month",
-      legend: "list",
-      measures: ["listNetChange", "listMembers"],
+      barMeasure: "listNetChange",
+      lineMeasure: "listMembers",
+      grain: "month",
+      plotBy: "list",
+      matrixMeasures: [],
+      months: null,
+      lists: null,
       timeframe: "12m",
     },
     showAnnotation: true,
     annotation:
-      "Note from the template: the Legacy blog signups list has lost members every month of the period - no new sourcing, steady unsubscribes, and a December winback send that mostly harvested bounces and complaints. Campaign rates will never flag this; only the list view does.",
+      "Note from the template: the Legacy blog-signups list loses members every month of the period - no new sourcing, steady unsubscribes, and a December winback send that mostly harvested bounces and complaints. Campaign rates never flag this; only the list view does.",
     guideId: "list-health",
     builtin: true,
   },
@@ -81,7 +105,7 @@ export const BUILTIN_BOOKMARKS: BookmarkDef[] = [
 
 /* ---------- custom bookmarks (localStorage) ---------- */
 
-const STORAGE_KEY = "report-template.bookmarks";
+const STORAGE_KEY = "report-template.bookmarks.v2";
 
 export function loadCustomBookmarks(): BookmarkDef[] {
   try {

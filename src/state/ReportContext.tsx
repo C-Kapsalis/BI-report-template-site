@@ -6,8 +6,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AxisId, LegendId, MeasureId, TimeframeId } from "../data/measures";
+import type { GrainId, MeasureId, PlotById, TimeframeId } from "../data/measures";
 import { EMPTY_SELECTION, type Selection } from "../data/series";
+import type { ListName } from "../data/types";
 import {
   BUILTIN_BOOKMARKS,
   loadCustomBookmarks,
@@ -15,7 +16,7 @@ import {
   type BookmarkDef,
 } from "./bookmarks";
 
-export const MAX_MEASURES = 6;
+export const MAX_ADDITIONAL_MEASURES = 6;
 
 interface ReportState {
   selection: Selection;
@@ -27,9 +28,14 @@ interface ReportState {
   bookmarkHistory: string[];
   annotationVisible: boolean;
   annotationText: string | null;
-  setAxis: (axis: AxisId) => void;
-  setLegend: (legend: LegendId) => void;
-  toggleMeasure: (id: MeasureId) => void;
+  setBarMeasure: (id: MeasureId | null) => void;
+  setLineMeasure: (id: MeasureId | null) => void;
+  setGrain: (grain: GrainId) => void;
+  setPlotBy: (plotBy: PlotById) => void;
+  toggleMatrixMeasure: (id: MeasureId) => void;
+  toggleMonth: (monthKey: string) => void;
+  setMonths: (months: string[] | null) => void;
+  setLists: (lists: ListName[] | null) => void;
   setTimeframe: (tf: TimeframeId) => void;
   applyBookmark: (id: string) => void;
   saveBookmark: (name: string) => BookmarkDef | null;
@@ -81,27 +87,35 @@ export function ReportProvider({
     setActiveBookmarkId(null);
   }, []);
 
-  const setAxis = useCallback((axis: AxisId) => mutate((p) => ({ ...p, axis })), [mutate]);
-  const setLegend = useCallback(
-    (legend: LegendId) => mutate((p) => ({ ...p, legend })),
-    [mutate],
-  );
-  const toggleMeasure = useCallback(
+  const setBarMeasure = useCallback((id: MeasureId | null) => mutate((p) => ({ ...p, barMeasure: id })), [mutate]);
+  const setLineMeasure = useCallback((id: MeasureId | null) => mutate((p) => ({ ...p, lineMeasure: id })), [mutate]);
+  const setGrain = useCallback((grain: GrainId) => mutate((p) => ({ ...p, grain })), [mutate]);
+  const setPlotBy = useCallback((plotBy: PlotById) => mutate((p) => ({ ...p, plotBy })), [mutate]);
+  const toggleMatrixMeasure = useCallback(
     (id: MeasureId) =>
       mutate((p) => {
-        const has = p.measures.includes(id);
-        if (!has && p.measures.length >= MAX_MEASURES) return p;
+        const has = p.matrixMeasures.includes(id);
+        if (!has && p.matrixMeasures.length >= MAX_ADDITIONAL_MEASURES) return p;
         return {
           ...p,
-          measures: has ? p.measures.filter((m) => m !== id) : [...p.measures, id],
+          matrixMeasures: has ? p.matrixMeasures.filter((m) => m !== id) : [...p.matrixMeasures, id],
         };
       }),
     [mutate],
   );
-  const setTimeframe = useCallback(
-    (timeframe: TimeframeId) => mutate((p) => ({ ...p, timeframe })),
+  const toggleMonth = useCallback(
+    (monthKey: string) =>
+      mutate((p) => {
+        const cur = p.months ?? [];
+        const has = cur.includes(monthKey);
+        const next = has ? cur.filter((m) => m !== monthKey) : [...cur, monthKey];
+        return { ...p, months: next.length === 0 ? null : next };
+      }),
     [mutate],
   );
+  const setMonths = useCallback((months: string[] | null) => mutate((p) => ({ ...p, months })), [mutate]);
+  const setLists = useCallback((lists: ListName[] | null) => mutate((p) => ({ ...p, lists })), [mutate]);
+  const setTimeframe = useCallback((timeframe: TimeframeId) => mutate((p) => ({ ...p, timeframe })), [mutate]);
 
   const applyBookmark = useCallback(
     (id: string) => {
@@ -121,10 +135,11 @@ export function ReportProvider({
   const saveBookmark = useCallback(
     (name: string): BookmarkDef | null => {
       const trimmed = name.trim();
-      if (!trimmed || !selection.axis || selection.measures.length === 0) return null;
+      if (!trimmed || (!selection.barMeasure && !selection.lineMeasure)) return null;
       const bm: BookmarkDef = {
         id: `custom-${Date.now()}`,
         name: trimmed,
+        menuLabel: trimmed,
         description: "Your saved view.",
         selection,
         builtin: false,
@@ -165,9 +180,14 @@ export function ReportProvider({
     bookmarkHistory,
     annotationVisible,
     annotationText,
-    setAxis,
-    setLegend,
-    toggleMeasure,
+    setBarMeasure,
+    setLineMeasure,
+    setGrain,
+    setPlotBy,
+    toggleMatrixMeasure,
+    toggleMonth,
+    setMonths,
+    setLists,
     setTimeframe,
     applyBookmark,
     saveBookmark,
